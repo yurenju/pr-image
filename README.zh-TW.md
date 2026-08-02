@@ -57,6 +57,13 @@ npm link
 pr-image init
 ```
 
+`npm link` 會在 npm 的全域 bin 目錄放一個 `pr-image` 符號連結——用 `npm prefix -g` 查那個目錄在哪，並確認它在你的 `PATH` 上。兩個後果值得知道：
+
+- **那個連結指回這份 clone。** 目錄搬走或刪掉，指令就壞了。放在一個不會動的地方。
+- **因為沒有 build 步驟，連結是直接跑原始碼的。** 在這裡 `git pull` 就等於升級了已安裝的指令，不用重裝。
+
+之後要移除就跑 `npm unlink -g pr-image`。
+
 `init` 會問 account id、bucket、公開網址、token 檔路徑與 1Password item，然後寫出 `~/.config/pr-image/config.json`：
 
 ```json

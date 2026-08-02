@@ -57,6 +57,13 @@ npm link
 pr-image init
 ```
 
+`npm link` puts a `pr-image` symlink in npm's global bin directory — run `npm prefix -g` to find where that is, and make sure it is on your `PATH`. Two consequences worth knowing:
+
+- **The link points back at this clone.** Move or delete the directory and the command breaks. Keep it somewhere permanent.
+- **There is no build step, so the link runs the source directly.** `git pull` here upgrades the installed command; nothing needs reinstalling.
+
+To remove it later, run `npm unlink -g pr-image`.
+
 `init` asks for the account id, bucket, public URL, token file path and 1Password item, then writes `~/.config/pr-image/config.json`:
 
 ```json
