@@ -25,10 +25,14 @@ Done once by hand, not by this tool.
 
 ### Cloudflare
 
-1. Create an R2 bucket.
-2. In the bucket's **Settings → Object lifecycle rules**, add a rule that deletes objects **30 days** after creation. Nothing in this tool deletes anything; if you skip this step, storage grows until it costs money and you will not be warned. See [ADR-0001](docs/adr/0001-expiry-is-a-bucket-lifecycle-rule.md).
+1. Create an R2 bucket. Leave **Location** on Automatic, and keep the default storage class of **Standard** — the free tier does not cover Infrequent Access, despite its "accessed less than once a month" description fitting these images well.
+2. In the bucket's **Settings → Object lifecycle rules**, add a rule whose only action is **Delete uploaded objects after 30 days**. Leave the prefix empty so it covers the whole bucket — keys here are random and share no prefix to match on. Do not tick the transition to Infrequent Access: that storage class is outside the free tier and each transition costs a write operation.
+
+   Nothing in this tool deletes anything; if you skip this step, storage grows until it costs money and you will not be warned. See [ADR-0001](docs/adr/0001-expiry-is-a-bucket-lifecycle-rule.md).
 3. Connect a **custom domain** to the bucket, so images are served from a host you control.
-4. Create an **R2 API token** with **Object Read & Write** permission, scoped to that one bucket. Do not use an account-level token. Keep the access key id and secret access key.
+4. Create an **R2 API token** from **R2 object storage → Account Details → API Tokens → Manage**. This is not the same thing as a Cloudflare API token made under My Profile — only the R2 flow issues the access key id and secret access key pair that S3 request signing needs.
+
+   Give it **Object Read & Write** and scope it to the `pr-image` bucket alone. Of the four permission levels, only the two `Object` ones can be scoped to specific buckets; both `Admin` levels are account-wide. The secret access key is shown once and never again, so have the 1Password item open before you create it.
 
 ### 1Password
 

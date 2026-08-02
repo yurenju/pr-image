@@ -25,10 +25,14 @@ $ pr-image upload --markdown before.png after.png
 
 ### Cloudflare
 
-1. 建一個 R2 bucket。
-2. 在 bucket 的 **Settings → Object lifecycle rules** 加一條規則，建立後 **30 天**刪除。這個工具不會刪任何東西；這一步漏掉的話，儲存量會一直長到開始收費，而且不會有人提醒你。見 [ADR-0001](docs/adr/0001-expiry-is-a-bucket-lifecycle-rule.md)。
+1. 建一個 R2 bucket。**Location** 用 Automatic，storage class 保持預設的 **Standard**——免費額度不含 Infrequent Access，雖然它「一個月存取不到一次」的說明聽起來很像在講這些圖。
+2. 在 bucket 的 **Settings → Object lifecycle rules** 加一條規則，動作只勾 **Delete uploaded objects after 30 days**。prefix 留空，規則才會套用到整個 bucket——這裡的 key 是隨機的，沒有共同前綴可以比對。**不要**勾轉到 Infrequent Access：那個 storage class 不在免費額度內，而且每轉一次還算一次寫入操作。
+
+   這個工具不會刪任何東西；這一步漏掉的話，儲存量會一直長到開始收費，而且不會有人提醒你。見 [ADR-0001](docs/adr/0001-expiry-is-a-bucket-lifecycle-rule.md)。
 3. 幫 bucket 綁一個 **custom domain**，讓圖片從你自己控制的網域送出。
-4. 開一把 **R2 API token**，權限選 **Object Read & Write**，範圍限定在這一個 bucket。不要用帳號層級的 token。記下 access key id 與 secret access key。
+4. 從 **R2 object storage → Account Details → API Tokens → Manage** 開一把 **R2 API token**。這跟 My Profile 底下那個通用的 Cloudflare API token 不是同一個東西——只有 R2 這條路徑會給你 S3 簽名需要的 access key id 與 secret access key。
+
+   權限選 **Object Read & Write**，範圍只勾 `pr-image` 這一個 bucket。四個權限等級裡只有兩個 `Object` 開頭的能綁定特定 bucket，兩個 `Admin` 都是整個帳號。secret access key 只會顯示一次、關掉就沒了，所以先把 1Password 的 item 開著再按建立。
 
 ### 1Password
 
