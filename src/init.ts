@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline/promises";
+import { createInterface } from "node:readline";
 
 import { configPath, parseConfig, toConfigFile } from "./config.ts";
 
@@ -22,22 +22,34 @@ export async function init(): Promise<void> {
     throw new Error(`${path} already exists. Edit it directly, or delete it and run init again.`);
   }
 
-  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  const rl = createInterface({ input: process.stdin });
+  // Pulling lines off the async iterator rather than using
+  // readline/promises' question(): that one only ever resolves once when
+  // stdin is a pipe, so answers fed from a script would hang after the first.
+  // Prompts go to stderr so a piped run's output stays clean.
+  const lines = rl[Symbol.asyncIterator]();
+  const ask = async (prompt: string): Promise<string> => {
+    process.stderr.write(prompt);
+    const { value, done } = await lines.next();
+    if (done === true) throw new Error("Input ended before every question was answered.");
+    return (value as string).trim();
+  };
+
   try {
-    const accountId = await rl.question("Cloudflare account id: ");
-    const bucket = await rl.question("R2 bucket name: ");
-    const publicBaseUrl = await rl.question("Public base URL (e.g. https://img.example.com): ");
+    const accountId = await ask("Cloudflare account id: ");
+    const bucket = await ask("R2 bucket name: ");
+    const publicBaseUrl = await ask("Public base URL (e.g. https://img.example.com): ");
     const tokenFile =
-      (await rl.question(`1Password service account token file [${DEFAULT_TOKEN_FILE}]: `)) ||
+      (await ask(`1Password service account token file [${DEFAULT_TOKEN_FILE}]: `)) ||
       DEFAULT_TOKEN_FILE;
-    const item = await rl.question("1Password secret reference prefix (op://<vault>/<item>): ");
+    const item = await ask("1Password secret reference prefix (op://<vault>/<item>): ");
     const prefix = item.trim().replace(/\/+$/, "");
 
     const config = parseConfig({
-      accountId: accountId.trim(),
-      bucket: bucket.trim(),
-      publicBaseUrl: publicBaseUrl.trim(),
-      tokenFile: tokenFile.trim(),
+      accountId,
+      bucket,
+      publicBaseUrl,
+      tokenFile,
       secretReferences: {
         accessKeyId: `${prefix}/access-key-id`,
         secretAccessKey: `${prefix}/secret-access-key`,
