@@ -1,0 +1,27 @@
+{
+  "name": "pr-image",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Upload an image to Cloudflare R2 and print a URL to paste into a pull request",
+  "license": "MIT",
+  "author": "Yuren Ju (yurenju)",
+  "type": "module",
+  "bin": {
+    "pr-image": "./src/cli.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@1password/sdk": "^0.5.0",
+    "aws4fetch": "^1.0.20"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
