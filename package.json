@@ -1,18 +1,29 @@
 {
-  "name": "pr-image",
+  "name": "@yurenju/pr-image",
   "version": "0.1.0",
-  "private": true,
   "description": "Upload an image to Cloudflare R2 and print a URL to paste into a pull request",
   "license": "MIT",
   "author": "Yuren Ju (yurenju)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yurenju/pr-image.git"
+  },
   "type": "module",
   "bin": {
-    "pr-image": "./src/cli.ts"
+    "pr-image": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=24"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
     "test": "node --test",
     "typecheck": "tsc --noEmit"
   },

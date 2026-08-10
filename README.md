@@ -15,7 +15,7 @@ Nothing runs in the background and nothing is scheduled. Expiry is a lifecycle r
 
 ## Requirements
 
-- **Node.js 24 or newer.** TypeScript runs directly, so there is no build step.
+- **Node.js 24 or newer.**
 - **A Cloudflare account with R2**, and a domain on Cloudflare to serve the bucket from.
 - **A 1Password service account.** Note that service accounts are not available on every 1Password plan — check that you can create one before going further, because the R2 credentials are read through it and there is no fallback.
 
@@ -50,19 +50,29 @@ Done once by hand, not by this tool.
 Repeat this on each machine you want to upload from.
 
 ```bash
+npm install -g @yurenju/pr-image
+pr-image init
+```
+
+The install puts a `pr-image` command in npm's global bin directory — run `npm prefix -g` to find where that is, and make sure it is on your `PATH`.
+
+Later, `npm install -g @yurenju/pr-image@latest` upgrades it and `npm uninstall -g @yurenju/pr-image` removes it.
+
+To run it from a clone instead — for working on the tool, not for using it:
+
+```bash
 git clone https://github.com/yurenju/pr-image.git
 cd pr-image
 npm install
 npm link
-pr-image init
 ```
 
-`npm link` puts a `pr-image` symlink in npm's global bin directory — run `npm prefix -g` to find where that is, and make sure it is on your `PATH`. Two consequences worth knowing:
+`npm install` compiles `src/` into `dist/`, and `dist/cli.js` is what the command runs. Two consequences worth knowing:
 
 - **The link points back at this clone.** Move or delete the directory and the command breaks. Keep it somewhere permanent.
-- **There is no build step, so the link runs the source directly.** `git pull` here upgrades the installed command; nothing needs reinstalling.
+- **`git pull` alone does not upgrade the command.** Run `npm install` again afterwards to rebuild `dist/`.
 
-To remove it later, run `npm unlink -g pr-image`.
+To remove it later, run `npm unlink -g @yurenju/pr-image`.
 
 `init` asks for the account id, bucket, public URL, token file path and 1Password item, then writes `~/.config/pr-image/config.json`:
 
