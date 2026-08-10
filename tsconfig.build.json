@@ -1,0 +1,16 @@
+// Node strips types only outside node_modules, so an installed package cannot
+// run TypeScript source. This config emits the JavaScript that ships to npm;
+// the root config stays type-check-only and still covers the tests.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    // Imports say "./config.ts"; the emitted ones have to say "./config.js".
+    "rewriteRelativeImportExtensions": true,
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"]
+}

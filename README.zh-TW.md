@@ -15,7 +15,7 @@ $ pr-image upload --markdown before.png after.png
 
 ## 需要什麼
 
-- **Node.js 24 以上**。TypeScript 直接執行，沒有 build 步驟。
+- **Node.js 24 以上**。
 - **一個有開 R2 的 Cloudflare 帳號**，以及一個掛在 Cloudflare 上的 domain 用來提供圖片。
 - **一個 1Password service account**。注意：不是每種 1Password 方案都能開 service account，請先確認開得出來再往下做——R2 的憑證只能透過它讀取，沒有備援路徑。
 
@@ -50,19 +50,29 @@ $ pr-image upload --markdown before.png after.png
 每台要拿來上傳的機器都要做一次。
 
 ```bash
+npm install -g @yurenju/pr-image
+pr-image init
+```
+
+安裝會在 npm 的全域 bin 目錄放一個 `pr-image` 指令，用 `npm prefix -g` 查那個目錄在哪，並確認它在你的 `PATH` 上。
+
+之後 `npm install -g @yurenju/pr-image@latest` 可以升級，`npm uninstall -g @yurenju/pr-image` 可以移除。
+
+如果要直接跑 clone 出來的原始碼（給改工具的人，不是給用工具的人）：
+
+```bash
 git clone https://github.com/yurenju/pr-image.git
 cd pr-image
 npm install
 npm link
-pr-image init
 ```
 
-`npm link` 會在 npm 的全域 bin 目錄放一個 `pr-image` 符號連結——用 `npm prefix -g` 查那個目錄在哪，並確認它在你的 `PATH` 上。兩個後果值得知道：
+`npm install` 會把 `src/` 編譯成 `dist/`，指令實際跑的是 `dist/cli.js`。兩個後果值得知道：
 
 - **那個連結指回這份 clone。** 目錄搬走或刪掉，指令就壞了。放在一個不會動的地方。
-- **因為沒有 build 步驟，連結是直接跑原始碼的。** 在這裡 `git pull` 就等於升級了已安裝的指令，不用重裝。
+- **只做 `git pull` 不會升級那個指令。** 拉完之後要再跑一次 `npm install` 重建 `dist/`。
 
-之後要移除就跑 `npm unlink -g pr-image`。
+之後要移除就跑 `npm unlink -g @yurenju/pr-image`。
 
 `init` 會問 account id、bucket、公開網址、token 檔路徑與 1Password item，然後寫出 `~/.config/pr-image/config.json`：
 
