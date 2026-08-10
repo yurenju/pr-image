@@ -10,7 +10,7 @@
   },
   "type": "module",
   "bin": {
-    "pr-image": "./dist/cli.js"
+    "pr-image": "dist/cli.js"
   },
   "files": [
     "dist"
