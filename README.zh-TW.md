@@ -83,13 +83,27 @@ npm link
   "publicBaseUrl": "https://img.example.com",
   "tokenFile": "/home/you/.config/op/service-account-token",
   "secretReferences": {
-    "accessKeyId": "op://Automation/pr-image r2/access-key-id",
-    "secretAccessKey": "op://Automation/pr-image r2/secret-access-key"
+    "accessKeyId": "pr-image r2/access-key-id",
+    "secretAccessKey": "pr-image r2/secret-access-key"
   }
 }
 ```
 
 這個檔案裡沒有秘密，只有 token 檔的路徑和指向 1Password 的參考。想改預設的 10 MB 上限就加一個 `maxFileSizeMb`。
+
+### 這些參照指向哪一個 vault
+
+secret reference 有兩種寫法：完整的 `op://<vault>/<item>/<field>`，或是像上面那樣的短形式 `<item>/<field>`。兩種都收。短形式把 vault 留給檔案外面提供，找的順序是：
+
+1. 環境變數 `PR_IMAGE_VAULT`；
+2. 沒有的話，設定檔頂層的 `vault` 欄位，給那種沒有人幫它設環境變數的機器用；
+3. 再沒有就不跑。
+
+**沒有預設的 vault，這是刻意的。**猜一個 vault 有可能真的讀得到，那就變成拿一組沒有人選過的憑證去簽章，比當場失敗更糟。短形式找不到 vault 的時候，錯誤訊息會指名 `PR_IMAGE_VAULT` 與 `vault` 欄位，因為要修的是這個檔案或你的 shell，不會是 1Password。
+
+短形式存在的理由是：同一份設定檔常常要給好幾台機器共用，但每台機器讀自己的 vault，這樣某一台掉了可以只 revoke 那一台的憑證，不動到其他機器。設定檔的座標是它描述的那組設定，vault 的座標是「機器 × 那組設定」。多出來的這個維度，正是這個檔案裝不下的東西。
+
+`init` 問的是 `op://<vault>/<item>` 形式的 item，所以它寫出來的檔案會把 vault 寫滿。等到那份檔案開始要共用的那天，再自己把參照改成短形式。
 
 ## 用法
 
