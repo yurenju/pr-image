@@ -1,6 +1,6 @@
 {
   "name": "@yurenju/pr-image",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Upload an image to Cloudflare R2 and print a URL to paste into a pull request",
   "license": "MIT",
   "author": "Yuren Ju (yurenju)",
