@@ -83,13 +83,27 @@ To remove it later, run `npm unlink -g @yurenju/pr-image`.
   "publicBaseUrl": "https://img.example.com",
   "tokenFile": "/home/you/.config/op/service-account-token",
   "secretReferences": {
-    "accessKeyId": "op://Automation/pr-image r2/access-key-id",
-    "secretAccessKey": "op://Automation/pr-image r2/secret-access-key"
+    "accessKeyId": "pr-image r2/access-key-id",
+    "secretAccessKey": "pr-image r2/secret-access-key"
   }
 }
 ```
 
 The file holds no secrets — only the path to the token and references to 1Password. An optional `maxFileSizeMb` overrides the 10 MB default.
+
+### Which vault the references point at
+
+A secret reference is written either in full, `op://<vault>/<item>/<field>`, or short, `<item>/<field>` as above. Both are accepted. The short form leaves the vault to be supplied from outside the file, and it is looked for in this order:
+
+1. the `PR_IMAGE_VAULT` environment variable;
+2. failing that, a top-level `vault` field in the config file, for a machine whose environment nobody sets up;
+3. failing that, nothing runs.
+
+There is no default vault, deliberately. A guessed vault can resolve, and then the upload is signed with credentials nobody chose — worse than stopping. When a short reference has no vault to complete it, the error names `PR_IMAGE_VAULT` and the `vault` field, because the thing that needs fixing is this file or the shell, never 1Password.
+
+The short form exists because one config file is often shared across machines, while each machine reads from a vault of its own — so that a lost machine's credentials can be revoked without disturbing the others. The file's coordinate is the setup it describes; the vault's coordinate is machine × setup. That extra dimension is the one thing this file cannot carry.
+
+`init` asks for the item as `op://<vault>/<item>`, so the file it writes names the vault in full. Shorten the references by hand on the day that file starts being shared.
 
 ## Usage
 

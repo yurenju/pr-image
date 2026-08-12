@@ -93,3 +93,113 @@ describe("parseConfig", () => {
     assert.throws(() => parseConfig(null));
   });
 });
+
+const withReferences = (accessKeyId: string, secretAccessKey = accessKeyId) => ({
+  ...valid,
+  secretReferences: { accessKeyId, secretAccessKey },
+});
+
+const short = withReferences("pr-image r2/access-key-id", "pr-image r2/secret-access-key");
+
+describe("parseConfig and the vault a short secret reference is missing", () => {
+  it("leaves a full reference alone, whatever the environment says", () => {
+    const config = parseConfig(valid, { PR_IMAGE_VAULT: "some-other-vault" });
+
+    assert.equal(config.secretReferences.accessKeyId, "op://Automation/pr-image r2/access-key-id");
+    assert.equal(
+      config.secretReferences.secretAccessKey,
+      "op://Automation/pr-image r2/secret-access-key",
+    );
+  });
+
+  it("completes a short reference from PR_IMAGE_VAULT", () => {
+    const config = parseConfig(short, { PR_IMAGE_VAULT: "wsl-work" });
+
+    assert.equal(config.secretReferences.accessKeyId, "op://wsl-work/pr-image r2/access-key-id");
+    assert.equal(
+      config.secretReferences.secretAccessKey,
+      "op://wsl-work/pr-image r2/secret-access-key",
+    );
+  });
+
+  it("completes a short reference from the config file's vault field", () => {
+    const config = parseConfig({ ...short, vault: "wsl-work" }, {});
+
+    assert.equal(config.secretReferences.accessKeyId, "op://wsl-work/pr-image r2/access-key-id");
+  });
+
+  it("prefers PR_IMAGE_VAULT over the config file's vault field", () => {
+    const env = { PR_IMAGE_VAULT: "from-the-environment" };
+    const config = parseConfig({ ...short, vault: "from-the-file" }, env);
+
+    assert.equal(
+      config.secretReferences.accessKeyId,
+      "op://from-the-environment/pr-image r2/access-key-id",
+    );
+  });
+
+  it("keeps a section in the middle of a short reference", () => {
+    const config = parseConfig(withReferences("pr-image r2/r2/access-key-id"), {
+      PR_IMAGE_VAULT: "wsl-work",
+    });
+
+    assert.equal(config.secretReferences.accessKeyId, "op://wsl-work/pr-image r2/r2/access-key-id");
+  });
+
+  it("names PR_IMAGE_VAULT and the vault field when neither supplies one", () => {
+    assert.throws(
+      () => parseConfig(short, {}),
+      (error: Error) =>
+        /PR_IMAGE_VAULT/.test(error.message) &&
+        /"vault"/.test(error.message) &&
+        /accessKeyId/.test(error.message) &&
+        /secretAccessKey/.test(error.message),
+    );
+  });
+
+  it("treats an empty PR_IMAGE_VAULT as no vault at all", () => {
+    for (const value of ["", "   "]) {
+      assert.throws(() => parseConfig(short, { PR_IMAGE_VAULT: value }), /PR_IMAGE_VAULT/, value);
+    }
+  });
+
+  it("guesses no vault when there is none to be had", () => {
+    // Nothing in the message may suggest a fallback was tried: reading the
+    // wrong vault can succeed, and signing with credentials nobody chose is
+    // worse than stopping here.
+    assert.throws(
+      () => parseConfig(short, {}),
+      (error: Error) => !/Private|Personal/.test(error.message),
+    );
+  });
+
+  it("refuses a vault name that would forge a second path segment", () => {
+    assert.throws(
+      () => parseConfig(short, { PR_IMAGE_VAULT: "wsl-work/pr-image" }),
+      /PR_IMAGE_VAULT/,
+    );
+    assert.throws(() => parseConfig({ ...short, vault: "wsl-work/pr-image" }, {}), /vault/);
+    assert.throws(() => parseConfig({ ...short, vault: "" }, {}), /vault/);
+  });
+
+  it("rejects a malformed reference instead of reading it as a short one", () => {
+    const malformed = [
+      "pr-image-r2-key", // no field
+      "pr-image-r2-key/", // empty field
+      "/access-key-id", // empty item
+      "pr-image-r2-key//access-key-id", // empty section
+      "op://Automation/pr-image r2", // full form, no field
+      "op:///pr-image r2/access-key-id", // full form, no vault
+      "op:/Automation/pr-image r2/access-key-id", // one slash short of a scheme
+      "ops://Automation/pr-image r2/access-key-id", // not 1Password's scheme
+    ];
+
+    for (const value of malformed) {
+      assert.throws(
+        () => parseConfig(withReferences(value), { PR_IMAGE_VAULT: "wsl-work" }),
+        /secretReferences\.accessKeyId/,
+        value,
+      );
+    }
+  });
+});
