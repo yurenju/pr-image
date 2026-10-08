@@ -17,8 +17,8 @@ const matches = (source: Uint8Array, fragments: readonly Fragment[]) =>
 
 /**
  * Formats a screenshot tool can realistically produce. SVG is deliberately
- * absent: it can carry script, and these images are served from a domain the
- * developer owns, so that script would run on their origin.
+ * absent: it can carry script, and how the store serves an uploaded SVG has
+ * never been tried. Nothing a pull request needs is lost by refusing it.
  */
 const SIGNATURES: ReadonlyArray<{
   fragments: readonly Fragment[];
