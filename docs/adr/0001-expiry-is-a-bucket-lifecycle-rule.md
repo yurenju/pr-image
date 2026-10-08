@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0003
+---
+
 # 過期交給 bucket 的 lifecycle rule，不寫在程式裡
 
 PR 圖片在 pull request 關掉之後就沒人看了，所以 30 天過期。這個過期是在 bucket 上設一次 R2 object lifecycle rule 做到的；工具本身完全沒有刪除邏輯，也不會去列出或移除任何 object。
