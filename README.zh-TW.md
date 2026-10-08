@@ -60,7 +60,7 @@ sbx secret set-custom --host vercel.com --env PR_IMAGE_BLOB_TOKEN --value '<toke
 
 ### 從 0.1 升級
 
-0.2 拿掉了 Cloudflare R2、1Password 與設定檔。`~/.config/pr-image/config.json` 不會再被讀取，可以刪掉；已經傳到 R2 的圖會照 bucket 的 lifecycle rule 自己過期，之後就可以把 bucket 和它的 API token 一起刪掉。
+0.2 拿掉了 Cloudflare R2、設定檔，以及工具自己的 1Password 整合——它現在只讀 `PR_IMAGE_BLOB_TOKEN`，所以 1Password 依然能從外面接進來，像上面那樣透過 `sbx --ref` 或 `op run`。`~/.config/pr-image/config.json` 不會再被讀取，可以刪掉；已經傳到 R2 的圖會照 bucket 的 lifecycle rule 自己過期，之後就可以把 bucket 和它的 API token 一起刪掉。
 
 ### 直接跑 clone 出來的原始碼
 

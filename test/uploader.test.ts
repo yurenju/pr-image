@@ -172,6 +172,27 @@ describe("upload", () => {
     });
   });
 
+  it("refuses to print a URL when a success carries none", async () => {
+    const { fetch } = fakeFetch(() => Response.json({ pathname: "x.png" }));
+
+    await assert.rejects(upload(request, fetch), (error: Error) => {
+      assert.equal(error.name, "UploadError");
+      assert.match(error.message, /no public URL/);
+      return true;
+    });
+  });
+
+  it("reports a success whose body is not JSON as an upload error", async () => {
+    const { fetch } = fakeFetch(() => new Response("<html>ok</html>", { status: 200 }));
+
+    await assert.rejects(upload(request, fetch), (error: Error) => {
+      assert.equal(error.name, "UploadError");
+      assert.match(error.message, /no public URL/);
+      assert.match(error.message, /<html>ok<\/html>/);
+      return true;
+    });
+  });
+
   it("pins the API version it was written against", async () => {
     const { fetch, sent } = fakeFetch(ok);
 

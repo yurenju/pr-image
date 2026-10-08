@@ -60,7 +60,7 @@ Set the variable however you set secrets in your shell — for example `op run` 
 
 ### Upgrading from 0.1
 
-0.2 drops Cloudflare R2, 1Password and the config file. `~/.config/pr-image/config.json` is no longer read and can be deleted; images already uploaded to R2 expire on their own under the bucket's lifecycle rule, after which the bucket and its API token can be removed.
+0.2 drops Cloudflare R2, the config file and its own 1Password integration — it only reads `PR_IMAGE_BLOB_TOKEN` now, so 1Password still works from the outside, through `sbx --ref` or `op run` as above. `~/.config/pr-image/config.json` is no longer read and can be deleted; images already uploaded to R2 expire on their own under the bucket's lifecycle rule, after which the bucket and its API token can be removed.
 
 ### Running from a clone
 

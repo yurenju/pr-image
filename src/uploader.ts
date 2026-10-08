@@ -1,3 +1,5 @@
+import { TOKEN_ENV } from "./settings.ts";
+
 const API_URL = "https://vercel.com/api/blob/";
 /** The version @vercel/blob 2.8 speaks; the request below was written against it. */
 const API_VERSION = "12";
@@ -12,7 +14,7 @@ export class UploadError extends Error {
 }
 
 export interface UploadRequest {
-  /** Read-write token of the store; inside a Docker Sandbox, a placeholder. */
+  /** As in Settings: passed along untouched, never read. */
   token: string;
   pathname: string;
   body: Uint8Array;
@@ -63,8 +65,25 @@ export async function upload(
     throw new UploadError(`Vercel Blob refused the upload: ${error.message}${hint(error.code)}`);
   }
 
-  const { url } = (await response.json()) as { url: string };
+  // Printing whatever came back would put `undefined` into a pull request.
+  const text = await response.text().catch(() => "");
+  const url = parsePublicUrl(text);
+  if (url === undefined) {
+    throw new UploadError(
+      `Vercel Blob accepted the upload but returned no public URL.` +
+        (text.trim() === "" ? "" : `\n${text.trim()}`),
+    );
+  }
   return url;
+}
+
+function parsePublicUrl(text: string): string | undefined {
+  try {
+    const { url } = JSON.parse(text) as { url?: unknown };
+    return typeof url === "string" && url !== "" ? url : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -73,7 +92,7 @@ export async function upload(
  * in every pull request included. The tool cannot see usage coming, so the
  * least it can do is say so when the refusal arrives.
  */
-const LIMITS =
+const ALLOWANCE_HINT =
   "\nOn the Hobby plan this can mean the store has used up its free allowance. " +
   "Vercel then blocks the store for 30 days; deleting old blobs from the dashboard " +
   "frees space for the next period.";
@@ -81,9 +100,9 @@ const LIMITS =
 function hint(code: string): string {
   switch (code) {
     case "store_suspended":
-      return LIMITS;
+      return ALLOWANCE_HINT;
     case "forbidden":
-      return `\nCheck that PR_IMAGE_BLOB_TOKEN is the read-write token of the store.${LIMITS}`;
+      return `\nCheck that ${TOKEN_ENV} is the read-write token of the store.${ALLOWANCE_HINT}`;
     default:
       return "";
   }

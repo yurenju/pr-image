@@ -3,7 +3,7 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const TOKEN_ENV = "PR_IMAGE_BLOB_TOKEN";
+export const TOKEN_ENV = "PR_IMAGE_BLOB_TOKEN";
 
 export interface Settings {
   /** Read-write token of the one store; inside a Docker Sandbox, a placeholder. */
