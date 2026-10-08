@@ -3,12 +3,10 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
 
-import { loadConfig } from "./config.ts";
-import { onePasswordCredentials } from "./credentials.ts";
 import { detectImageType } from "./image.ts";
-import { init } from "./init.ts";
-import { newKey } from "./key.ts";
 import { formatImage, type HostedImage } from "./output.ts";
+import { newPathname } from "./pathname.ts";
+import { loadSettings } from "./settings.ts";
 import { upload } from "./uploader.ts";
 import { VERSION } from "./version.ts";
 
@@ -17,17 +15,25 @@ const USAGE = `pr-image ${VERSION} — host an image for a pull request
 Usage:
   pr-image upload [--markdown] <file>...   Upload images and print their URLs
   pr-image upload -                        Upload an image read from stdin
-  pr-image init                            Create the per-machine config file
 
 Options:
   -m, --markdown   Print ![alt](url) instead of a bare URL
   -h, --help       Show this message
   -v, --version    Show the version
 
-Images are deleted automatically once they reach the bucket's expiry age.
+Environment:
+  PR_IMAGE_BLOB_TOKEN   Read-write token of the Vercel Blob store
+
+Images are kept for good; nothing here ever deletes one.
 `;
 
 const STDIN = "-";
+/**
+ * Blobs are never deleted, and the Hobby plan's free storage is 1 GB, so one
+ * upload must not be able to take a large bite of it. Screenshots sit far
+ * below this.
+ */
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 async function readSource(path: string): Promise<Uint8Array> {
   if (path !== STDIN) return readFile(path);
@@ -38,14 +44,15 @@ async function readSource(path: string): Promise<Uint8Array> {
 }
 
 async function uploadAll(paths: string[], markdown: boolean): Promise<void> {
-  const config = await loadConfig();
+  // Settings first: a missing token should be reported before any file is read.
+  const settings = await loadSettings();
 
   const sources = await Promise.all(
     paths.map(async (path) => {
       const body = await readSource(path);
 
-      if (body.byteLength > config.maxFileSizeBytes) {
-        const limitMb = (config.maxFileSizeBytes / 1024 / 1024).toFixed(0);
+      if (body.byteLength > MAX_FILE_SIZE_BYTES) {
+        const limitMb = (MAX_FILE_SIZE_BYTES / 1024 / 1024).toFixed(0);
         throw new Error(`${sourceLabel(path)} is larger than the ${limitMb} MB limit.`);
       }
 
@@ -61,15 +68,10 @@ async function uploadAll(paths: string[], markdown: boolean): Promise<void> {
     }),
   );
 
-  // Resolving credentials costs a round trip to 1Password, so it happens once
-  // for the whole run — and only after every source has been found readable.
-  const credentials = await onePasswordCredentials(config);
-
   for (const { path, body, type } of sources) {
     const publicUrl = await upload({
-      config,
-      credentials,
-      key: newKey(type.extension),
+      token: settings.token,
+      pathname: newPathname(type.extension),
       body,
       contentType: type.contentType,
     });
@@ -78,9 +80,9 @@ async function uploadAll(paths: string[], markdown: boolean): Promise<void> {
       path === STDIN ? { publicUrl } : { publicUrl, sourceName: basename(path) };
 
     // Print the moment an upload lands. Holding the lines to the end would
-    // mean a later failure loses the URLs of objects already in the bucket —
-    // and nothing here can delete them, so they would sit there unreachable
-    // until they expire.
+    // mean a later failure loses the URLs of blobs already in the store —
+    // and nothing here deletes them, so they would sit there unreachable
+    // for good.
     process.stdout.write(`${formatImage(image, { markdown })}\n`);
   }
 }
@@ -111,10 +113,6 @@ async function main(argv: string[]): Promise<number> {
   }
 
   switch (command) {
-    case "init":
-      await init();
-      return 0;
-
     case "upload": {
       if (rest.length === 0) {
         throw new Error("upload needs at least one file, or - to read from stdin.");

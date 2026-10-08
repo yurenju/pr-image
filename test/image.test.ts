@@ -87,8 +87,8 @@ describe("detectImageType", () => {
   });
 
   it("refuses SVG even though it is an image", () => {
-    // SVG can carry script, and these images are served from a domain of the
-    // developer's own. See docs/adr/0002.
+    // SVG can carry script, and how the store serves one has never been tried;
+    // a screenshot never needs to be an SVG.
     const svg = ascii('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
 
     assert.equal(detectImageType(svg), undefined);

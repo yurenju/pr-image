@@ -10,6 +10,6 @@ const TOKEN_BYTES = 16;
  * cryptographic source and encodes nothing — no repository, no date, no
  * original file name. See docs/adr/0002.
  */
-export function newKey(extension: string): string {
+export function newPathname(extension: string): string {
   return `${randomBytes(TOKEN_BYTES).toString("base64url")}.${extension}`;
 }

@@ -1,7 +1,8 @@
-import { AwsClient } from "aws4fetch";
-
-import type { Config } from "./config.ts";
-import type { R2Credentials } from "./credentials.ts";
+const API_URL = "https://vercel.com/api/blob/";
+/** The version @vercel/blob 2.8 speaks; the request below was written against it. */
+const API_VERSION = "12";
+/** A pathname is random and never overwritten, so its content never changes. */
+const ONE_YEAR_SECONDS = String(365 * 24 * 60 * 60);
 
 export class UploadError extends Error {
   constructor(message: string) {
@@ -11,57 +12,101 @@ export class UploadError extends Error {
 }
 
 export interface UploadRequest {
-  config: Config;
-  credentials: R2Credentials;
-  key: string;
+  /** Read-write token of the store; inside a Docker Sandbox, a placeholder. */
+  token: string;
+  pathname: string;
   body: Uint8Array;
   contentType: string;
 }
 
 /**
- * Put one object into the bucket and return the URL it is served from.
+ * Put one blob into the store and return the URL it is served from.
  *
- * R2 speaks the S3 API with a fixed region of "auto"; the account id is part
- * of the host rather than a header, which is the detail most often got wrong.
+ * This is a bare request rather than the @vercel/blob SDK because the SDK
+ * splits the token apart locally to find the store id. Inside a Docker
+ * Sandbox the token is a placeholder that the host's proxy swaps for the real
+ * one on the way out, so nothing may be derived from it here — it travels in
+ * the Authorization header, untouched, and the store answers with the URL.
  */
-export async function upload({
-  config,
-  credentials,
-  key,
-  body,
-  contentType,
-}: UploadRequest): Promise<string> {
-  const client = new AwsClient({
-    accessKeyId: credentials.accessKeyId,
-    secretAccessKey: credentials.secretAccessKey,
-    service: "s3",
-    region: "auto",
-  });
-
-  const endpoint = `https://${config.accountId}.r2.cloudflarestorage.com/${config.bucket}/${key}`;
-
+export async function upload(
+  { token, pathname, body, contentType }: UploadRequest,
+  fetch: typeof globalThis.fetch = globalThis.fetch,
+): Promise<string> {
   let response: Response;
   try {
-    response = await client.fetch(endpoint, {
+    response = await fetch(`${API_URL}?${new URLSearchParams({ pathname })}`, {
       method: "PUT",
       body,
-      headers: { "content-type": contentType },
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-api-version": API_VERSION,
+        "x-vercel-blob-access": "public",
+        "x-content-type": contentType,
+        "x-add-random-suffix": "0",
+        "x-allow-overwrite": "0",
+        "x-cache-control-max-age": ONE_YEAR_SECONDS,
+      },
     });
   } catch (cause) {
-    throw new UploadError(`Could not reach R2 at ${endpoint}: ${(cause as Error).message}`);
+    throw new UploadError(`Could not reach Vercel Blob at ${API_URL}: ${(cause as Error).message}`);
   }
 
   if (!response.ok) {
-    const detail = (await response.text().catch(() => "")).trim();
-    throw new UploadError(
-      `R2 refused the upload with ${response.status} ${response.statusText}.` +
-        (response.status === 403
-          ? `\nA 403 here usually means the accountId or bucket in your configuration ` +
-            `does not match the API token, or the token lacks object write permission.`
-          : "") +
-        (detail === "" ? "" : `\n${detail}`),
-    );
+    const text = (await response.text().catch(() => "")).trim();
+    const error = parseError(text);
+    if (error === undefined) {
+      throw new UploadError(
+        `The upload was refused with ${response.status} ${response.statusText}.` +
+          (text === "" ? "" : `\n${text}`),
+      );
+    }
+    throw new UploadError(`Vercel Blob refused the upload: ${error.message}${hint(error.code)}`);
   }
 
-  return `${config.publicBaseUrl}/${key}`;
+  const { url } = (await response.json()) as { url: string };
+  return url;
+}
+
+/**
+ * Blobs are never deleted, so the store only grows, and the Hobby plan's
+ * answer to a full allowance is to block the store for 30 days — old images
+ * in every pull request included. The tool cannot see usage coming, so the
+ * least it can do is say so when the refusal arrives.
+ */
+const LIMITS =
+  "\nOn the Hobby plan this can mean the store has used up its free allowance. " +
+  "Vercel then blocks the store for 30 days; deleting old blobs from the dashboard " +
+  "frees space for the next period.";
+
+function hint(code: string): string {
+  switch (code) {
+    case "store_suspended":
+      return LIMITS;
+    case "forbidden":
+      return `\nCheck that PR_IMAGE_BLOB_TOKEN is the read-write token of the store.${LIMITS}`;
+    default:
+      return "";
+  }
+}
+
+interface BlobError {
+  code: string;
+  message: string;
+}
+
+/**
+ * Vercel answers with `{ error: { code, message } }`, but a refusal can also
+ * come from something in between — the sandbox's proxy, a gateway — in
+ * whatever shape that thing likes.
+ */
+function parseError(text: string): BlobError | undefined {
+  try {
+    const { error } = JSON.parse(text) as { error?: Partial<BlobError> };
+    if (typeof error?.code === "string" && typeof error.message === "string") {
+      return { code: error.code, message: error.message };
+    }
+  } catch {
+    // Not JSON; the caller reports the raw text.
+  }
+  return undefined;
 }
